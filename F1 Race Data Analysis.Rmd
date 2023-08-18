@@ -1,0 +1,253 @@
+---
+title: "Analysis: Do drivers who win more races also tend to podium more often in Formula 1?"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+
+Student Name: Hiroon Imalsha Wijekoon
+
+Student ID: M23W0307
+
+## Dataset
+
+The dataset which has been chosen for this analysis is **race data of Formula 1 Championships from 1950 to 2023**. Formula 1 (F1) championship is a globally recognized and a prestigious competitions sanctioned by Fédération Internationale de l'Automobile (FIA) and owned by the Formula One Group. A Formula 1 season which is known as 'Grand Prix' consists of series of races which happen throughout the year all over the world on racing circuits and public roads. "F1" can be categorized as the highest class of single-seater racing where other categories are "F2" which is a slightly smaller and slower and "F3" which is a junior racing league. This analysis will only be focused on F1 racing data.
+
+The selected dataset contains all information about F1 races, drivers, pit stops, lap times, circuits, qualifying rounds, and constructors from 1950 to 2023 latest championship making the dataset very important and relevant for this analysis. This dataset has been scored as 10 in Kaggle.com which means this dataset has 100% of completeness, credibility and compatibility.
+
+The data set can be access from: <https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020>
+
+### Exploring the data set
+
+#### Drivers
+
+This dataset contains information about all the drivers who competed in F1 races from 1950-2023. This data set can be used to acquire data about all the drivers who has competed in F1.
+
+```{r}
+DriversDataset <- read.csv("./Dataset/drivers.csv")
+head(DriversDataset)
+```
+
+#### Race Results
+
+This dataset shows data about results of all the F1 races which has happened from 1950 to 2023.This dataset can be used to get information about number of wins and podium finishes by each driver.
+
+```{r}
+RaceResults <- read.csv("./Dataset/results.csv")
+head(RaceResults)
+```
+
+
+## Research Questions and Hypotheses
+
+The research question and hypotheses of this analysis are as follows.
+
+Research question: **Do drivers who win more races also tend to podium more often in Formula 1?**
+
+Null hypothesis: **There is a correlation between the number of wins and the number of podium finishes of drivers in Formula 1**
+
+Alternate hypothesis: **There is no correlation between the number of wins and the number of podium finishes of drivers in Formula 1**
+
+## Data preparation
+
+First the dataset should be prepared for the analysis by cleaning up and gathering all the necessary data which can be scattered across multiple datasets.
+
+
+
+### Cleaning Race Results Dataset
+
+All the values in the 'position' column of 'Race Results' should be examined to see if there are any strange values.
+
+```{r}
+unique(RaceResults$position)
+```
+
+This column should only contain numeric values. So all the records with value '\\N' should be removed.
+
+```{r}
+RaceResults <- RaceResults[!RaceResults$position=="\\N",]
+unique(RaceResults$position)
+```
+
+Now the data type of this column should be converted to 'int'.
+
+```{r}
+library(plyr)
+library(dplyr)
+RaceResults <- mutate(RaceResults,position = as.integer(position))
+head(RaceResults)
+```
+
+### Calculating total number of wins by each driver
+
+To determine the number of wins by each driver, *RaceResults* dataframe should be filtered to get only race data records which position of the driver equals to 1.
+
+This filtered data will be saved in a new dataframe named '*RaceResultsPos1*'.
+
+```{r}
+RaceResultsPos1 <- filter(RaceResults,position==1)
+head(RaceResultsPos1)
+```
+
+Now this above created data frame can be modified to get the total number of wins by each driver.
+
+```{r}
+DriverWins <- ddply(RaceResultsPos1,.(driverId),summarize,wins=sum(position))
+head(DriverWins)
+```
+
+Now we have the number of wins by each driver in all the F1 races from 1950 to 2023.
+
+### Calculating total number of podium finishes by each driver
+
+In F1, podium finishes are taken as first 3 finishes. This can be calculated by adding a new column called 'podium'. If driver's position is 1,2 or 3 then podium column records it as 1 otherwise 0.
+
+```{r}
+DriversPoidumFinishes <- mutate(RaceResults, podium = case_when(position<4 ~ 1, position>3~0))
+head(DriversPoidumFinishes)
+```
+
+This above *DriversPoidumFinishes* data frame can be modified again to get the total number of podiums by each driver.
+
+```{r}
+library(plyr)
+DriversPoidumFinishes <- ddply(DriversPoidumFinishes,.(driverId),summarize,podium=sum(podium))
+head(DriversPoidumFinishes)
+```
+
+Now we have the number of podium finishes by each driver in all the F1 races from 1950 to 2023.
+
+### Combining data of podium finishes and wins of each driver
+
+To create visualizations, these above two data frames should be combined.
+
+```{r}
+WorkingDataset <- join(DriversPoidumFinishes,DriverWins,by="driverId")
+head(WorkingDataset)
+```
+
+Drivers who has no wins should be displayed as 0 wins.
+
+```{r}
+WorkingDataset <- mutate(WorkingDataset,wins = coalesce(wins,0))
+head(WorkingDataset)
+```
+
+Now the details of each driver should be included in the data frame. For this, we can join this *WorkingDataset* with the *DriversDataset* by matching the **driverId**.
+
+```{r}
+library('plyr')
+WorkingDataset <- join(WorkingDataset,DriversDataset,by="driverId")
+WorkingDataset <- mutate(WorkingDataset,driverId=factor(driverId),code=factor(code))
+head(WorkingDataset)
+```
+
+Now we have a good working data frame which has all the data about drivers including number of wins and number of podium finishes.
+
+## Visualizations
+
+First we can visualize the number of wins and number of podium finishes of each driver using two lollipop diagrams to see if there is a visual similarity in the pattern of the diagrams.
+
+### Number of wins by each driver
+
+```{r}
+library(ggplot2)
+ggplot(WorkingDataset, aes(x = code, y = wins)) +
+  geom_segment(aes(x = code, y = 0, xend = code, yend = wins), color = "black") +
+  geom_point(size = 2, color = "skyblue") +
+  ggtitle("Distribution of wins by drivers") +
+  xlab("Driver") +
+  ylab("Number of wins")+
+  theme(axis.text.x = element_text(size = 5, angle = 90)) 
+```
+
+### Number of podium finishes by each driver
+
+```{r}
+ggplot(WorkingDataset, aes(x = code, y = podium)) +
+  geom_segment(aes(x = code, y = 0, xend = code, yend = podium), color = "black") +
+  geom_point(size = 2, color = "orange") +
+  ggtitle("Distribution of podium finishes by drivers") +
+  xlab("Driver") +
+  ylab("Number of podium finishes")+
+  theme(axis.text.x = element_text(size = 5, angle = 90)) 
+```
+
+We can see that there is a visual similarity in the pattern of each diagram.
+
+## Correlation between number of wins and podium finishes
+
+Now we can analyze the correlation between number of wins and podium finishes of each driver using a scatter plot. Wins and podium finishes should be represented in X and Y axes. Each point on the scatter plot will represent a driver and the position of the point will show the number of wins and number of podium finishes of that driver. A trend line can be added to the scatter plot to identify if there is a correlation between 2 variables. If the points are closer to the trend line that means there is a higher correlation.
+
+```{r}
+ggplot(WorkingDataset, aes(x = wins, y = podium)) +
+  ggtitle("Wins vs. podium finishes") +
+  xlab("Number of wins by each driver") +
+  ylab("Number of podium finishes by each driver")+
+geom_point(aes(color = code)) + geom_smooth(method='lm',formula=y~x, se = FALSE,linetype= "solid")
+```
+
+We can visually see that there is a *positive linear correlation* between number of wins and number of podium finishes of each driver.
+
+## Statistical Testing
+
+To further analyze this hypotheses, we can use statistical tests.
+
+### Pearson's correlation test
+
+```{r}
+library(ggpubr)
+cor(WorkingDataset$wins,WorkingDataset$podium, method="pearson")
+```
+
+```{r}
+library(ggpubr)
+ggscatter(WorkingDataset, x = "wins", y = "podium", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Number of wins", ylab = "Number of podium finishes",title = "Correlation between wins and podium finishes")
+```
+
+If the pearson's correlation coefficient (r) value is greater than 0.5, that means the correlation between the tested two variables are strong and positive. So, Number of wins and number of podiums finishes have a strong positive correlation.
+
+### Linear regression test
+
+Do drivers who win more races also tend to podium more often in Formula 1?
+
+
+```{r}
+model <- lm(podium ~ wins, data=WorkingDataset)
+summary(model)
+```
+
+The p-value for the coefficient of podium is less than 0.001. This means that the coefficient is statistically significant, meaning that there is a high probability that the relationship between the number of wins and the number of podium finishes are correlated. For every additional win a driver achieves, they are estimated to increase in chance of getting on the podium by about 2 times.
+
+So, We *reject the alternate hypothesis* and *accept the null hypothesis*.
+
+
+## Conclusion
+
+In this analysis, visualizations of number of wins and number of podium finishes of each driver using two lollipop diagrams showed that there is a visual similarity in the pattern of both diagrams giving a hint that these two variables can have a positive correlation. We could analyze the correlation between number of wins and podium finishes of each driver using the scatter plot. Most of the points were closer to the trend line meaning that there is a positive linear correlation between two variables. Using the Pearson's correlation test and linear regression test, it was made certain that there is a very strong positive correlation between wins and podium finishes. Finally this analysis has shown that **drivers who win more races also tend to podium more often in Formula 1** .
+
+## References
+
+<https://www.r-bloggers.com/2021/12/how-to-find-unique-values-in-r/>
+
+<https://www.datasciencemadesimple.com/delete-or-drop-rows-in-r-with-conditions-2/>
+
+<https://www.geeksforgeeks.org/how-to-filter-r-dataframe-by-values-in-a-column/>
+
+<https://stackoverflow.com/questions/15047742/sum-of-rows-based-on-column-value>
+
+<https://www.marsja.se/r-add-column-to-dataframe-based-on-other-columns-conditions-dplyr/>
+
+<https://www.rdocumentation.org/packages/plyr/versions/1.8.8/topics/ddply>
+
+<https://www.rdocumentation.org/packages/plyr/versions/1.8.8/topics/join>
+
+<https://stackoverflow.com/questions/59673227/large-data-on-x-axis-on-ggplot-in-r-studio>
+
+<https://rpubs.com/skalibala_1/785106>
+

@@ -1,0 +1,1 @@
+This paper contains an analysis for the research question, 'Do drivers who win more races also tend to podium more often in Formula 1?' using Formula 1 race data from 1950 to 2023 to see if there is a correlation between number of wins and number of podium finishes. This analysis was done using R programming language and all the steps and code snippets are included.
